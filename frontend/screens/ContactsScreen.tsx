@@ -1,24 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, Animated, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, Animated, Keyboard, TouchableWithoutFeedback, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Contact {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
+  contact_id: number;
+  user_id: number;
+  contact_name: string;
+  contact_email: string;
 }
 
 const ContactsScreen = () => {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [contacts, setContacts] = useState<Contact[]>([
-    { id: 1, name: 'John Doe', phone: '123-456-7890', email: 'john@example.com' },
-    { id: 2, name: 'Jane Smith', phone: '098-765-4321', email: 'jane@example.com' },
-  ]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const cloudAnimations = Array(8).fill(0).map(() => new Animated.Value(0));
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        setUserId(JSON.parse(userData).user_id);
+      }
+    };
+    fetchUserId();
+  }, []);
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      if (!userId) return;
+      
+      try {
+        const response = await fetch(`https://muud-take-home.onrender.com/contacts/user/${userId}`, {
+          headers: {
+            'Authorization': `BEARER ${await AsyncStorage.getItem('userToken')}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch contacts');
+        }
+
+        const data = await response.json();
+        setContacts(data);
+      } catch (error) {
+        console.error('Error fetching contacts:', error);
+        Alert.alert('Error', 'Failed to load contacts. Please try again later.');
+      }
+    };
+
+    fetchContacts();
+  }, [userId]);
 
   useEffect(() => {
     const startCloudAnimation = (animation: Animated.Value, duration: number, delay: number) => {
@@ -75,19 +109,52 @@ const ContactsScreen = () => {
     );
   };
 
-  const handleAddContact = () => {
-    if (name && phone && email) {
-      const newContact = {
-        id: contacts.length + 1,
-        name,
-        phone,
-        email,
-      };
-      setContacts([...contacts, newContact]);
-      setName('');
-      setPhone('');
-      setEmail('');
-      Keyboard.dismiss();
+  const handleAddContact = async () => {
+    if (name && email) {
+      try {
+        const response = await fetch('https://muud-take-home.onrender.com/contacts/add', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `BEARER ${await AsyncStorage.getItem('userToken')}`,
+          },
+          body: JSON.stringify({
+            contact_name: name,
+            contact_email: email,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add contact');
+        }
+
+        const data = await response.json();
+        
+        // Add the new contact to the local state
+        const newContact = {
+          contact_id: contacts.length + 1,
+          user_id: userId ? parseInt(userId) : 0,
+          contact_name: data.contact_name,
+          contact_email: data.contact_email,
+        };
+        
+        setContacts([...contacts, newContact]);
+        setName('');
+        setEmail('');
+        Keyboard.dismiss();
+        
+        // Show success message
+        Alert.alert(
+          'Success',
+          'Contact added successfully!',
+          [{ text: 'OK' }]
+        );
+      } catch (error) {
+        Alert.alert('Error', 'Failed to add contact. Please try again.');
+        console.error('Error adding contact:', error);
+      }
+    } else {
+      Alert.alert('Error', 'Please fill in all required fields');
     }
   };
 
@@ -95,15 +162,11 @@ const ContactsScreen = () => {
     <View style={styles.contactCard}>
       <View style={styles.contactHeader}>
         <MaterialCommunityIcons name="account" size={24} color="#4a90e2" />
-        <Text style={styles.contactName}>{item.name}</Text>
-      </View>
-      <View style={styles.contactInfo}>
-        <MaterialCommunityIcons name="phone" size={20} color="#4a90e2" />
-        <Text style={styles.contactText}>{item.phone}</Text>
+        <Text style={styles.contactName}>{item.contact_name}</Text>
       </View>
       <View style={styles.contactInfo}>
         <MaterialCommunityIcons name="email" size={20} color="#4a90e2" />
-        <Text style={styles.contactText}>{item.email}</Text>
+        <Text style={styles.contactText}>{item.contact_email}</Text>
       </View>
     </View>
   );
@@ -133,14 +196,6 @@ const ContactsScreen = () => {
             />
             <TextInput
               style={styles.input}
-              placeholder="Phone"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholderTextColor="#4a90e2"
-            />
-            <TextInput
-              style={styles.input}
               placeholder="Email"
               value={email}
               onChangeText={setEmail}
@@ -156,7 +211,7 @@ const ContactsScreen = () => {
           <FlatList
             data={contacts}
             renderItem={renderContact}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item.contact_id.toString()}
             contentContainerStyle={styles.listContainer}
           />
         </View>
