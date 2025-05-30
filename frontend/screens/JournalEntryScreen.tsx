@@ -5,24 +5,83 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ScrollView,
+  Animated,
+  Keyboard,
+  TouchableWithoutFeedback,
   Alert,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+type IconName = 'emoticon-cry-outline' | 'emoticon-sad-outline' | 'emoticon-neutral-outline' | 'emoticon-happy-outline' | 'emoticon-excited-outline';
+
 const JournalEntryScreen = () => {
   const { addJournalEntry } = useApp();
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [mood, setMood] = useState('');
+  const [entryText, setEntryText] = useState('');
+  const [moodRating, setMoodRating] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const cloudAnimations = Array(8).fill(0).map(() => new Animated.Value(0));
+
+  React.useEffect(() => {
+    const startCloudAnimation = (animation: Animated.Value, duration: number, delay: number) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(animation, {
+            toValue: 1,
+            duration: duration,
+            useNativeDriver: true,
+            delay: delay,
+          }),
+          Animated.timing(animation, {
+            toValue: 0,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    cloudAnimations.forEach((animation, index) => {
+      startCloudAnimation(animation, 4000 + index * 500, index * 300);
+    });
+  }, []);
+
+  const renderCloud = (animation: Animated.Value, style: any, scale: number = 1) => {
+    return (
+      <Animated.View
+        style={[
+          styles.cloud,
+          style,
+          {
+            transform: [
+              {
+                translateX: animation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-15, 15],
+                }),
+              },
+              {
+                scale: animation.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [scale, scale * 1.05, scale],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.cloudPart} />
+        <View style={[styles.cloudPart, styles.cloudPart2]} />
+        <View style={[styles.cloudPart, styles.cloudPart3]} />
+      </Animated.View>
+    );
+  };
+
   const handleSubmit = async () => {
-    if (!title.trim() || !content.trim()) {
-      Alert.alert('Error', 'Please fill in both title and content');
+    if (!entryText.trim()) {
+      Alert.alert('Error', 'Please enter some text for your journal entry');
       return;
     }
 
@@ -33,16 +92,15 @@ const JournalEntryScreen = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('https://muud-take-home.onrender.com/journal-entries', {
+      const response = await fetch('https://muud-take-home.onrender.com/journal/entry', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `BEARER ${token}`
         },
         body: JSON.stringify({
-          title,
-          content,
-          mood: mood || 'neutral'
+          entry_text: entryText,
+          mood_rating: moodRating,
         }),
       });
 
@@ -51,155 +109,260 @@ const JournalEntryScreen = () => {
       }
 
       const data = await response.json();
-      addJournalEntry(data);
+      
+      // Add the new entry to the context
+      addJournalEntry({
+        journal_entry_id: data.journal_entry_id,
+        user_id: parseInt(await AsyncStorage.getItem('userData') || '0'),
+        entry_text: entryText,
+        mood_rating: moodRating,
+        timestamp: new Date().toISOString(),
+      });
       
       // Clear form
-      setTitle('');
-      setContent('');
-      setMood('');
+      setEntryText('');
+      setMoodRating(3);
+      Keyboard.dismiss();
       
-      Alert.alert('Success', 'Journal entry created successfully!');
+      Alert.alert('Success', 'Your journal entry has been saved!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to create journal entry. Please try again.');
+      console.error('Error saving entry:', error);
+      Alert.alert('Error', 'Failed to save your journal entry. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const moodIcons: Record<number, { name: IconName; color: string }> = {
+    1: { name: 'emoticon-cry-outline', color: '#FF6B6B' },
+    2: { name: 'emoticon-sad-outline', color: '#FFA07A' },
+    3: { name: 'emoticon-neutral-outline', color: '#FFD93D' },
+    4: { name: 'emoticon-happy-outline', color: '#98D8AA' },
+    5: { name: 'emoticon-excited-outline', color: '#4CAF50' },
+  };
+
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior="padding"
-    >
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.formContainer}>
-          <Text style={styles.label}>Title</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Enter a title for your entry"
-            placeholderTextColor="#999"
-          />
-
-          <Text style={styles.label}>How are you feeling?</Text>
-          <View style={styles.moodContainer}>
-            {['😊', '😐', '😢', '😡', '😴'].map((emoji) => (
-              <TouchableOpacity
-                key={emoji}
-                style={[
-                  styles.moodButton,
-                  mood === emoji && styles.moodButtonSelected
-                ]}
-                onPress={() => setMood(emoji)}
-              >
-                <Text style={styles.moodEmoji}>{emoji}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Content</Text>
-          <TextInput
-            style={styles.contentInput}
-            value={content}
-            onChangeText={setContent}
-            placeholder="Write your thoughts here..."
-            placeholderTextColor="#999"
-            multiline
-            textAlignVertical="top"
-          />
-
-          <TouchableOpacity
-            style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            <MaterialCommunityIcons name="send" size={24} color="#fff" />
-            <Text style={styles.submitButtonText}>
-              {isSubmitting ? 'Saving...' : 'Save Entry'}
-            </Text>
-          </TouchableOpacity>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.container}>
+        <View style={styles.cloudBackground}>
+          {renderCloud(cloudAnimations[0], styles.cloud1, 1)}
+          {renderCloud(cloudAnimations[1], styles.cloud2, 0.8)}
+          {renderCloud(cloudAnimations[2], styles.cloud3, 1.2)}
+          {renderCloud(cloudAnimations[3], styles.cloud4, 0.9)}
+          {renderCloud(cloudAnimations[4], styles.cloud5, 0.7)}
+          {renderCloud(cloudAnimations[5], styles.cloud6, 1.1)}
+          {renderCloud(cloudAnimations[6], styles.cloud7, 0.85)}
+          {renderCloud(cloudAnimations[7], styles.cloud8, 0.95)}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        <View style={styles.contentContainer}>
+          <View style={styles.journalCard}>
+            <TextInput
+              style={styles.input}
+              placeholder="Write here..."
+              value={entryText}
+              onChangeText={setEntryText}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              placeholderTextColor="#4a90e2"
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
+              blurOnSubmit={true}
+            />
+
+            <View style={styles.moodSection}>
+              <Text style={styles.moodLabel}>How are you feeling today?</Text>
+              <View style={styles.moodContainer}>
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <TouchableOpacity
+                    key={rating}
+                    style={[
+                      styles.moodButton,
+                      moodRating === rating && styles.selectedMood,
+                    ]}
+                    onPress={() => setMoodRating(rating)}
+                  >
+                    <MaterialCommunityIcons
+                      name={moodIcons[rating].name}
+                      size={24}
+                      color={moodIcons[rating].color}
+                    />
+                    <Text style={[
+                      styles.moodNumber,
+                      { color: moodIcons[rating].color }
+                    ]}>
+                      {rating}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+            >
+              <View style={styles.submitButtonInner}>
+                <Text style={styles.submitButtonText}>
+                  {isSubmitting ? 'Saving...' : 'Save Entry'}
+                </Text>
+                <MaterialCommunityIcons
+                  name="cloud-upload"
+                  size={20}
+                  color="#fff"
+                  style={styles.submitIcon}
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#e8f4ff',
   },
-  scrollView: {
+  cloudBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 400,
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  cloud: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cloudPart: {
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    borderRadius: 50,
+    position: 'absolute',
+    width: 60,
+    height: 60,
+  },
+  cloudPart2: {
+    transform: [{ translateX: 20 }],
+    width: 50,
+    height: 50,
+  },
+  cloudPart3: {
+    transform: [{ translateX: -20 }],
+    width: 55,
+    height: 55,
+  },
+  cloud1: { width: 140, height: 80, top: 40, left: '15%' },
+  cloud2: { width: 120, height: 70, top: 100, left: '55%' },
+  cloud3: { width: 160, height: 90, top: 160, left: '25%' },
+  cloud4: { width: 130, height: 75, top: 220, left: '65%' },
+  cloud5: { width: 100, height: 60, top: 280, left: '35%' },
+  cloud6: { width: 150, height: 85, top: 50, left: '75%' },
+  cloud7: { width: 110, height: 65, top: 180, left: '85%' },
+  cloud8: { width: 90, height: 55, top: 320, left: '45%' },
+  contentContainer: {
     flex: 1,
-  },
-  formContainer: {
     padding: 20,
+    paddingTop: 150,
+    zIndex: 2,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+  journalCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    flex: 1,
+    borderWidth: 0,
+    padding: 15,
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#4a90e2',
+    textAlignVertical: 'top',
+    backgroundColor: 'transparent',
   },
-  contentInput: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    height: 200,
-    borderWidth: 1,
-    borderColor: '#ddd',
+  moodSection: {
+    marginVertical: 20,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    padding: 15,
+    borderRadius: 15,
+  },
+  moodLabel: {
+    fontSize: 18,
+    color: '#4a90e2',
+    marginBottom: 15,
+    fontWeight: '500',
   },
   moodContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    width: '80%',
   },
   moodButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(240, 247, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: 'rgba(225, 238, 255, 0.8)',
   },
-  moodButtonSelected: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#2196f3',
+  selectedMood: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#4a90e2',
+    transform: [{ scale: 1.1 }],
   },
-  moodEmoji: {
-    fontSize: 24,
+  moodNumber: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: 'bold',
   },
   submitButton: {
-    backgroundColor: '#2196f3',
-    borderRadius: 8,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(74, 144, 226, 0.9)',
+    padding: 15,
+    borderRadius: 25,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  submitButtonDisabled: {
-    backgroundColor: '#90caf9',
+  submitButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginRight: 8,
+  },
+  submitIcon: {
+    marginLeft: 4,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
 });
 
