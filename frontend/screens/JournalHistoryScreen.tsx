@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Mock data types
+// Types
 interface JournalEntry {
-  id: number;
+  journal_entry_id: number;
   user_id: number;
   entry_text: string;
   mood_rating: number;
@@ -19,33 +20,52 @@ const moodIcons: Record<number, { name: keyof typeof MaterialCommunityIcons.glyp
   5: { name: 'emoticon-excited-outline', color: '#92bdf2' }
 };
 
-// Mock data
-const mockEntries: JournalEntry[] = [
-  {
-    id: 1,
-    user_id: 1,
-    entry_text: "Today was a productive day. I completed all my tasks and felt accomplished.",
-    mood_rating: 4,
-    timestamp: "2024-03-20T10:00:00Z"
-  },
-  {
-    id: 2,
-    user_id: 1,
-    entry_text: "Feeling a bit overwhelmed with work, but trying to stay positive.",
-    mood_rating: 3,
-    timestamp: "2024-03-19T15:30:00Z"
-  },
-  {
-    id: 3,
-    user_id: 1,
-    entry_text: "Had a great conversation with a friend today. It really lifted my spirits.",
-    mood_rating: 5,
-    timestamp: "2024-03-18T20:15:00Z"
-  }
-];
-
 const JournalHistoryScreen = () => {
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const cloudAnimations = Array(8).fill(0).map(() => new Animated.Value(0));
+
+  useEffect(() => {
+    fetchJournalEntries();
+  }, []);
+
+  const fetchJournalEntries = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const userDataString = await AsyncStorage.getItem('userData');
+      if (!userDataString) {
+        throw new Error('No user data found');
+      }
+      const userData = JSON.parse(userDataString);
+      const user_id = userData.user_id;
+
+      const response = await fetch(`https://muud-take-home.onrender.com/journal/user/${user_id}`, {
+        headers: {
+          'Authorization': `BEARER ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch journal entries');
+      }
+
+      const data = await response.json();
+      setEntries(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const startCloudAnimation = (animation: Animated.Value, duration: number, delay: number) => {
@@ -145,12 +165,27 @@ const JournalHistoryScreen = () => {
       </View>
 
       <View style={styles.contentContainer}>
-        <FlatList
-          data={mockEntries}
-          renderItem={renderEntry}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContainer}
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4a90e2" />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchJournalEntries}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={entries}
+            renderItem={renderEntry}
+            keyExtractor={(item) => item.journal_entry_id.toString()}
+            contentContainerStyle={styles.listContainer}
+            refreshing={loading}
+            onRefresh={fetchJournalEntries}
+          />
+        )}
       </View>
     </View>
   );
@@ -292,6 +327,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#4a90e2',
     lineHeight: 24,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#4a90e2',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Animated, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Animated, Keyboard, TouchableWithoutFeedback, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = ({ navigation }: any) => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const cloudAnimations = Array(8).fill(0).map(() => new Animated.Value(0));
@@ -63,9 +64,34 @@ const LoginScreen = ({ navigation }: any) => {
     );
   };
 
-  const handleLogin = () => {
-    // TODO: Implement login logic
-    console.log('Login:', { email, password });
+  const handleLogin = async () => {
+    try {
+      const response = await fetch('https://muud-take-home.onrender.com/users/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username, // Using email as username since that's what the input field is labeled as
+          password: password
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Store the token
+        await AsyncStorage.setItem('userToken', data.token);
+        await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+        // Navigate to main app
+        navigation.navigate('MainApp');
+      } else {
+        // Show error message
+        Alert.alert('Error', data.error || 'Failed to login');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to connect to server');
+    }
   };
 
   return (
@@ -87,10 +113,10 @@ const LoginScreen = ({ navigation }: any) => {
             <Text style={styles.title}>Welcome Back</Text>
             <TextInput
               style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              placeholder="Username"
+              value={username}
+              onChangeText={setUsername}
+              keyboardType="default"
               autoCapitalize="none"
               placeholderTextColor="#4a90e2"
             />

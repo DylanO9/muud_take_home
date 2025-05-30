@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Keyboard, TouchableWithoutFeedback, Platform, Animated } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Keyboard, TouchableWithoutFeedback, Platform, Animated, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock data types
 interface JournalEntry {
@@ -28,6 +29,7 @@ const JournalEntryScreen = () => {
   const [entryText, setEntryText] = useState('');
   const [moodRating, setMoodRating] = useState(3);
   const [isWriting, setIsWriting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const cloudAnimations = Array(8).fill(0).map(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -86,18 +88,50 @@ const JournalEntryScreen = () => {
     );
   };
 
-  const handleSubmit = () => {
-    const newEntry: JournalEntry = {
-      id: Math.random(),
-      user_id: 1,
-      entry_text: entryText,
-      mood_rating: moodRating,
-      timestamp: new Date().toISOString(),
-    };
-    console.log('New entry:', newEntry);
-    setEntryText('');
-    setMoodRating(3);
-    Keyboard.dismiss();
+  const handleSubmit = async () => {
+    if (!entryText.trim()) {
+      Alert.alert('Error', 'Please enter some text for your journal entry');
+      return;
+    }
+    console.log({
+      entryText,
+      moodRating,
+      isSubmitting
+    });
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('https://muud-take-home.onrender.com/journal/entry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        'Authorization': `BEARER ${await AsyncStorage.getItem('userToken')}`,
+        },
+        body: JSON.stringify({
+          entry_text: entryText,
+          mood_rating: moodRating,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save journal entry');
+      }
+
+      const data = await response.json();
+      console.log('Entry saved successfully:', data);
+      
+      // Reset form
+      setEntryText('');
+      setMoodRating(3);
+      Keyboard.dismiss();
+      
+      Alert.alert('Success', 'Your journal entry has been saved!');
+    } catch (error) {
+      console.error('Error saving entry:', error);
+      Alert.alert('Error', 'Failed to save your journal entry. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -160,11 +194,14 @@ const JournalEntryScreen = () => {
             </View>
 
             <TouchableOpacity 
-              style={styles.submitButton} 
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} 
               onPress={handleSubmit}
+              disabled={isSubmitting}
             >
               <View style={styles.submitButtonInner}>
-                <Text style={styles.submitButtonText}>Save Entry</Text>
+                <Text style={styles.submitButtonText}>
+                  {isSubmitting ? 'Saving...' : 'Save Entry'}
+                </Text>
                 <MaterialCommunityIcons
                   name="cloud-upload"
                   size={20}
@@ -358,6 +395,9 @@ const styles = StyleSheet.create({
   },
   submitIcon: {
     marginLeft: 4,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
 });
 

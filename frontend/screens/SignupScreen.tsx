@@ -87,8 +87,9 @@ const SignupScreen = ({ navigation }: any) => {
           if (response.ok) {
             // Store the token
             await AsyncStorage.setItem('userToken', data.token);
+            await AsyncStorage.setItem('userData', JSON.stringify(data.user));
             // Navigate to main app
-            navigation.navigate('Main');
+            navigation.navigate('MainApp');
           } else {
             // Show error message
             Alert.alert('Error', data.error || 'Failed to sign up');
