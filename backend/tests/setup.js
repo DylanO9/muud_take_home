@@ -11,11 +11,41 @@ const testPool = new Pool({
 // Helper function to clean up the database between tests
 async function cleanupDatabase() {
   try {
-    await testPool.query('DELETE FROM journal_entries');
-    await testPool.query('DELETE FROM contacts');
-    await testPool.query('DELETE FROM users');
+    // Drop and recreate tables to ensure clean state
+    await testPool.query('DROP TABLE IF EXISTS journal_entries CASCADE');
+    await testPool.query('DROP TABLE IF EXISTS contacts CASCADE');
+    await testPool.query('DROP TABLE IF EXISTS users CASCADE');
+    
+    // Recreate tables
+    await testPool.query(`
+      CREATE TABLE users (
+        user_id SERIAL PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL
+      )
+    `);
+    
+    await testPool.query(`
+      CREATE TABLE journal_entries (
+        journal_entry_id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+        entry_text TEXT NOT NULL,
+        mood_rating INTEGER CHECK (mood_rating >= 1 AND mood_rating <= 5),
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await testPool.query(`
+      CREATE TABLE contacts (
+        contact_id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+        contact_name VARCHAR(255) NOT NULL,
+        contact_email VARCHAR(255) NOT NULL
+      )
+    `);
   } catch (error) {
     console.error('Error cleaning up database:', error);
+    throw error;
   }
 }
 
