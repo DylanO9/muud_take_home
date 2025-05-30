@@ -66,45 +66,52 @@ const SignupScreen = ({ navigation }: any) => {
     );
   };
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (password !== confirmPassword) {
-      // TODO: Show error message
-      const signupUser = async () => {
-        try {
-          const response = await fetch('https://muud-take-home.onrender.com/users/signup', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              username: username,
-              password: password
-            }),
-          });
-
-          const data = await response.json();
-          
-          if (response.ok) {
-            // Store the token
-            await AsyncStorage.setItem('userToken', data.token);
-            await AsyncStorage.setItem('userData', JSON.stringify(data.user));
-            // Navigate to main app
-            navigation.navigate('MainApp');
-          } else {
-            // Show error message
-            Alert.alert('Error', data.error || 'Failed to sign up');
-          }
-        } catch (error) {
-          Alert.alert('Error', 'Failed to connect to server');
-        }
-      };
-
-      signupUser();
-      console.log('Passwords do not match');
+      Alert.alert('Error', 'Passwords do not match. Please make sure both passwords are identical.');
       return;
     }
-    // TODO: Implement signup logic
-    console.log('Signup:', { username, password });
+
+    if (!username || !password) {
+      Alert.alert('Error', 'Please fill in all required fields (username and password).');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://muud-take-home.onrender.com/users/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username,
+          password: password
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Store the token and user data
+        await AsyncStorage.setItem('userToken', data.token);
+        await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+        // Navigate to main app
+        navigation.navigate('MainApp');
+      } else {
+        if (response.status === 409) {
+          Alert.alert('Error', 'This username is already taken. Please choose a different username.');
+        } else if (response.status === 400) {
+          Alert.alert('Error', 'Invalid input. Please check your username and password format.');
+        } else {
+          Alert.alert('Error', data.error || 'Failed to sign up. Please try again later.');
+        }
+      }
+    } catch (error) {
+      Alert.alert(
+        'Connection Error',
+        'Unable to connect to the server. Please check your internet connection and try again.'
+      );
+    }
   };
 
   return (

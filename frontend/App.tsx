@@ -2,8 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { StyleSheet, Platform } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import JournalEntryScreen from './screens/JournalEntryScreen';
 import JournalHistoryScreen from './screens/JournalHistoryScreen';
@@ -11,6 +11,7 @@ import ContactsScreen from './screens/ContactsScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppProvider } from './context/AppContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -54,8 +55,8 @@ const MainTabs = () => {
         },
         headerTitleAlign: 'center',
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? 88 : 60,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+          height: 60,
+          paddingBottom: 10,
           borderTopWidth: 1,
           borderTopColor: '#eee',
           backgroundColor: '#fff',
@@ -108,10 +109,10 @@ const MainTabs = () => {
   );
 };
 
-export default function App() {
+const App = () => {
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container}>
+      <AppProvider>
         <NavigationContainer>
           <Stack.Navigator
             screenOptions={{
@@ -123,10 +124,12 @@ export default function App() {
             <Stack.Screen name="MainApp" component={MainTabs} />
           </Stack.Navigator>
         </NavigationContainer>
-      </SafeAreaView>
+      </AppProvider>
     </SafeAreaProvider>
   );
-}
+};
+
+export default App;
 
 const styles = StyleSheet.create({
   container: {

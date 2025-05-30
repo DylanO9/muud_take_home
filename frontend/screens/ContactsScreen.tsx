@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useApp } from '../context/AppContext';
 
 type RootStackParamList = {
   Login: undefined;
@@ -21,10 +22,9 @@ interface Contact {
 
 const ContactsScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { contacts, addContact, userId, setUserId } = useApp();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
 
   const cloudAnimations = Array(8).fill(0).map(() => new Animated.Value(0));
 
@@ -37,32 +37,6 @@ const ContactsScreen = () => {
     };
     fetchUserId();
   }, []);
-
-  useEffect(() => {
-    const fetchContacts = async () => {
-      if (!userId) return;
-      
-      try {
-        const response = await fetch(`https://muud-take-home.onrender.com/contacts/user/${userId}`, {
-          headers: {
-            'Authorization': `BEARER ${await AsyncStorage.getItem('userToken')}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch contacts');
-        }
-
-        const data = await response.json();
-        setContacts(data);
-      } catch (error) {
-        console.error('Error fetching contacts:', error);
-        Alert.alert('Error', 'Failed to load contacts. Please try again later.');
-      }
-    };
-
-    fetchContacts();
-  }, [userId]);
 
   useEffect(() => {
     const startCloudAnimation = (animation: Animated.Value, duration: number, delay: number) => {
@@ -140,15 +114,8 @@ const ContactsScreen = () => {
 
         const data = await response.json();
         
-        // Add the new contact to the local state
-        const newContact = {
-          contact_id: contacts.length + 1,
-          user_id: userId ? parseInt(userId) : 0,
-          contact_name: data.contact_name,
-          contact_email: data.contact_email,
-        };
-        
-        setContacts([...contacts, newContact]);
+        // Add the new contact to the context
+        addContact(data.contact);
         setName('');
         setEmail('');
         Keyboard.dismiss();
