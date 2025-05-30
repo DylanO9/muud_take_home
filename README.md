@@ -50,5 +50,6 @@ https://muud-take-home.onrender.com/
 ## Assumptions
 
 - Journal entry and history are implemented as separate screens for better user experience and organization
-- Users need to be authenticated to access the journal features
+- Users need to be authenticated to access and add journal entries
+- Users need to be authenticated to access and add contacts
 - Each journal entry includes both text content and a mood rating 
