@@ -1,0 +1,364 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Keyboard, TouchableWithoutFeedback, Platform, Animated } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+// Mock data types
+interface JournalEntry {
+  id: number;
+  user_id: number;
+  entry_text: string;
+  mood_rating: number;
+  timestamp: string;
+}
+
+interface MoodIcon {
+  name: keyof typeof MaterialCommunityIcons.glyphMap;
+  color: string;
+}
+
+const moodIcons: Record<number, MoodIcon> = {
+  1: { name: 'emoticon-cry-outline', color: '#4a90e2' },
+  2: { name: 'emoticon-sad-outline', color: '#5c9ce6' },
+  3: { name: 'emoticon-neutral-outline', color: '#6ea7ea' },
+  4: { name: 'emoticon-happy-outline', color: '#80b2ee' },
+  5: { name: 'emoticon-excited-outline', color: '#92bdf2' }
+};
+
+const JournalEntryScreen = () => {
+  const [entryText, setEntryText] = useState('');
+  const [moodRating, setMoodRating] = useState(3);
+  const [isWriting, setIsWriting] = useState(false);
+  const cloudAnimations = Array(8).fill(0).map(() => new Animated.Value(0));
+
+  useEffect(() => {
+    const startCloudAnimation = (animation: Animated.Value, duration: number, delay: number) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(animation, {
+            toValue: 1,
+            duration: duration,
+            useNativeDriver: true,
+            delay: delay,
+          }),
+          Animated.timing(animation, {
+            toValue: 0,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    // Start animations with different timings
+    cloudAnimations.forEach((animation, index) => {
+      startCloudAnimation(animation, 4000 + index * 500, index * 300);
+    });
+  }, []);
+
+  const renderCloud = (animation: Animated.Value, style: any, scale: number = 1) => {
+    return (
+      <Animated.View
+        style={[
+          styles.cloud,
+          style,
+          {
+            transform: [
+              {
+                translateX: animation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-15, 15],
+                }),
+              },
+              {
+                scale: animation.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [scale, scale * 1.05, scale],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.cloudPart} />
+        <View style={[styles.cloudPart, styles.cloudPart2]} />
+        <View style={[styles.cloudPart, styles.cloudPart3]} />
+      </Animated.View>
+    );
+  };
+
+  const handleSubmit = () => {
+    const newEntry: JournalEntry = {
+      id: Math.random(),
+      user_id: 1,
+      entry_text: entryText,
+      mood_rating: moodRating,
+      timestamp: new Date().toISOString(),
+    };
+    console.log('New entry:', newEntry);
+    setEntryText('');
+    setMoodRating(3);
+    Keyboard.dismiss();
+  };
+
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.container}>
+        <View style={styles.cloudBackground}>
+          {renderCloud(cloudAnimations[0], styles.cloud1, 1)}
+          {renderCloud(cloudAnimations[1], styles.cloud2, 0.8)}
+          {renderCloud(cloudAnimations[2], styles.cloud3, 1.2)}
+          {renderCloud(cloudAnimations[3], styles.cloud4, 0.9)}
+          {renderCloud(cloudAnimations[4], styles.cloud5, 0.7)}
+          {renderCloud(cloudAnimations[5], styles.cloud6, 1.1)}
+          {renderCloud(cloudAnimations[6], styles.cloud7, 0.85)}
+          {renderCloud(cloudAnimations[7], styles.cloud8, 0.95)}
+        </View>
+
+        <View style={styles.contentContainer}>
+          <View style={styles.journalCard}>
+            <TextInput
+              style={styles.input}
+              multiline
+              numberOfLines={8}
+              value={entryText}
+              onChangeText={(text) => {
+                setEntryText(text);
+                setIsWriting(text.length > 0);
+              }}
+              placeholderTextColor="#a0c4e8"
+              returnKeyType="done"
+              blurOnSubmit={true}
+              onSubmitEditing={Keyboard.dismiss}
+            />
+
+            <View style={styles.moodSection}>
+              <Text style={styles.moodLabel}>How are you feeling today?</Text>
+              <View style={styles.moodContainer}>
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <TouchableOpacity
+                    key={rating}
+                    style={[
+                      styles.moodButton,
+                      moodRating === rating && styles.selectedMood,
+                    ]}
+                    onPress={() => setMoodRating(rating)}
+                  >
+                    <MaterialCommunityIcons
+                      name={moodIcons[rating].name}
+                      size={24}
+                      color={moodIcons[rating].color}
+                    />
+                    <Text style={[
+                      styles.moodNumber,
+                      { color: moodIcons[rating].color }
+                    ]}>
+                      {rating}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.submitButton} 
+              onPress={handleSubmit}
+            >
+              <View style={styles.submitButtonInner}>
+                <Text style={styles.submitButtonText}>Save Entry</Text>
+                <MaterialCommunityIcons
+                  name="cloud-upload"
+                  size={20}
+                  color="#fff"
+                  style={styles.submitIcon}
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </TouchableWithoutFeedback>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#e8f4ff',
+  },
+  cloudBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 400,
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  cloud: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cloudPart: {
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    borderRadius: 50,
+    position: 'absolute',
+    width: 60,
+    height: 60,
+  },
+  cloudPart2: {
+    transform: [{ translateX: 20 }],
+    width: 50,
+    height: 50,
+  },
+  cloudPart3: {
+    transform: [{ translateX: -20 }],
+    width: 55,
+    height: 55,
+  },
+  cloud1: {
+    width: 140,
+    height: 80,
+    top: 40,
+    left: '15%',
+  },
+  cloud2: {
+    width: 120,
+    height: 70,
+    top: 100,
+    left: '55%',
+  },
+  cloud3: {
+    width: 160,
+    height: 90,
+    top: 160,
+    left: '25%',
+  },
+  cloud4: {
+    width: 130,
+    height: 75,
+    top: 220,
+    left: '65%',
+  },
+  cloud5: {
+    width: 100,
+    height: 60,
+    top: 280,
+    left: '35%',
+  },
+  cloud6: {
+    width: 150,
+    height: 85,
+    top: 50,
+    left: '75%',
+  },
+  cloud7: {
+    width: 110,
+    height: 65,
+    top: 180,
+    left: '85%',
+  },
+  cloud8: {
+    width: 90,
+    height: 55,
+    top: 320,
+    left: '45%',
+  },
+  contentContainer: {
+    flex: 1,
+    padding: 20,
+    paddingTop: 150,
+    zIndex: 2,
+  },
+  journalCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  input: {
+    flex: 1,
+    borderWidth: 0,
+    padding: 15,
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: '#4a90e2',
+    textAlignVertical: 'top',
+    backgroundColor: 'transparent',
+  },
+  moodSection: {
+    marginVertical: 20,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    padding: 15,
+    borderRadius: 15,
+  },
+  moodLabel: {
+    fontSize: 18,
+    color: '#4a90e2',
+    marginBottom: 15,
+    fontWeight: '500',
+  },
+  moodContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '80%',
+  },
+  moodButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(240, 247, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(225, 238, 255, 0.8)',
+  },
+  selectedMood: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#4a90e2',
+    transform: [{ scale: 1.1 }],
+  },
+  moodNumber: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: 'bold',
+  },
+  submitButton: {
+    backgroundColor: 'rgba(74, 144, 226, 0.9)',
+    padding: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  submitButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  submitIcon: {
+    marginLeft: 4,
+  },
+});
+
+export default JournalEntryScreen;
