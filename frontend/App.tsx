@@ -10,9 +10,30 @@ import JournalHistoryScreen from './screens/JournalHistoryScreen';
 import ContactsScreen from './screens/ContactsScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+const LogoutScreen = ({ navigation }: any) => {
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.multiRemove(['userToken', 'userData']);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    handleLogout();
+  }, []);
+
+  return null;
+};
 
 const MainTabs = () => {
   return (
@@ -70,6 +91,16 @@ const MainTabs = () => {
           title: 'Contacts',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account-group" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Logout"
+        component={LogoutScreen}
+        options={{
+          title: 'Logout',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="logout" size={size} color={color} />
           ),
         }}
       />
