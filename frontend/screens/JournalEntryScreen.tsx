@@ -75,6 +75,8 @@ const JournalEntryScreen = () => {
         <View style={styles.cloudPart} />
         <View style={[styles.cloudPart, styles.cloudPart2]} />
         <View style={[styles.cloudPart, styles.cloudPart3]} />
+        <View style={[styles.cloudPart, styles.cloudPart4]} />
+        <View style={[styles.cloudPart, styles.cloudPart5]} />
       </Animated.View>
     );
   };
@@ -235,7 +237,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 400,
     overflow: 'hidden',
-    zIndex: 1,
+    zIndex: 0,
   },
   cloud: {
     position: 'absolute',
@@ -244,35 +246,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cloudPart: {
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 50,
     position: 'absolute',
+    width: 70,
+    height: 70,
+  },
+  cloudPart2: {
+    transform: [{ translateX: 25 }],
     width: 60,
     height: 60,
   },
-  cloudPart2: {
-    transform: [{ translateX: 20 }],
-    width: 50,
-    height: 50,
-  },
   cloudPart3: {
-    transform: [{ translateX: -20 }],
+    transform: [{ translateX: -25 }],
+    width: 65,
+    height: 65,
+  },
+  cloudPart4: {
+    transform: [{ translateX: 12 }, { translateY: -15 }],
     width: 55,
     height: 55,
   },
-  cloud1: { width: 140, height: 80, top: 40, left: '15%' },
-  cloud2: { width: 120, height: 70, top: 100, left: '55%' },
-  cloud3: { width: 160, height: 90, top: 160, left: '25%' },
-  cloud4: { width: 130, height: 75, top: 220, left: '65%' },
-  cloud5: { width: 100, height: 60, top: 280, left: '35%' },
-  cloud6: { width: 150, height: 85, top: 50, left: '75%' },
-  cloud7: { width: 110, height: 65, top: 180, left: '85%' },
-  cloud8: { width: 90, height: 55, top: 320, left: '45%' },
+  cloudPart5: {
+    transform: [{ translateX: -12 }, { translateY: -15 }],
+    width: 58,
+    height: 58,
+  },
+  cloud1: { width: 160, height: 90, top: 40, left: '15%' },
+  cloud2: { width: 140, height: 80, top: 100, left: '55%' },
+  cloud3: { width: 180, height: 100, top: 160, left: '25%' },
+  cloud4: { width: 150, height: 85, top: 220, left: '65%' },
+  cloud5: { width: 120, height: 70, top: 280, left: '35%' },
+  cloud6: { width: 170, height: 95, top: 50, left: '75%' },
+  cloud7: { width: 130, height: 75, top: 180, left: '85%' },
+  cloud8: { width: 110, height: 65, top: 320, left: '45%' },
   contentContainer: {
     flex: 1,
     padding: 20,
     paddingTop: 150,
-    zIndex: 2,
+    zIndex: 1,
   },
   journalCard: {
     flex: 1,
