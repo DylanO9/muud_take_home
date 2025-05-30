@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Animated, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Animated, Keyboard, TouchableWithoutFeedback, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SignupScreen = ({ navigation }: any) => {
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -68,11 +69,41 @@ const SignupScreen = ({ navigation }: any) => {
   const handleSignup = () => {
     if (password !== confirmPassword) {
       // TODO: Show error message
+      const signupUser = async () => {
+        try {
+          const response = await fetch('https://muud-take-home.onrender.com/users/signup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              username: username,
+              password: password
+            }),
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            // Store the token
+            await AsyncStorage.setItem('userToken', data.token);
+            // Navigate to main app
+            navigation.navigate('Main');
+          } else {
+            // Show error message
+            Alert.alert('Error', data.error || 'Failed to sign up');
+          }
+        } catch (error) {
+          Alert.alert('Error', 'Failed to connect to server');
+        }
+      };
+
+      signupUser();
       console.log('Passwords do not match');
       return;
     }
     // TODO: Implement signup logic
-    console.log('Signup:', { name, email, password });
+    console.log('Signup:', { username, password });
   };
 
   return (
@@ -94,17 +125,10 @@ const SignupScreen = ({ navigation }: any) => {
             <Text style={styles.title}>Create Account</Text>
             <TextInput
               style={styles.input}
-              placeholder="Full Name"
-              value={name}
-              onChangeText={setName}
-              placeholderTextColor="#4a90e2"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              placeholder="Username"
+              value={username}
+              onChangeText={setUsername}
+              keyboardType="default"
               autoCapitalize="none"
               placeholderTextColor="#4a90e2"
             />
